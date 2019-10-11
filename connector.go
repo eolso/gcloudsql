@@ -11,15 +11,17 @@ import (
 	"github.com/briandowns/spinner"
 )
 
+// Connection : Struct for storing relevant gcloud sql connection data
 type Connection struct {
 	ProjectID    string
 	InstanceName string
 	accessToken  AccessToken
 	httpRequest  *http.Request
 	response     Response
-	lock         sync.Mutex
+	lock         *sync.Mutex
 }
 
+// Response : Struct for storing response data from gcloud sql api
 type Response struct {
 	Kind          string `json:"kind"`
 	TargetLink    string `json:"targetLink"`
@@ -35,6 +37,7 @@ type Response struct {
 	TargetProject string `json:"targetProject"`
 }
 
+// NewConnection : Creates a new Connection from a specified projectID, instanceName
 func NewConnection(projectID string, instanceName string) (Connection, error) {
 	accessToken, err := GenerateAccessToken()
 	if err != nil {
@@ -48,16 +51,19 @@ func NewConnection(projectID string, instanceName string) (Connection, error) {
 	}, nil
 }
 
+// GetResponse : Returns the last response held by the connection
 func (c Connection) GetResponse() Response {
 	return c.response
 }
 
+// EnableSSL : enables the ssl required restriction on the instance
 func (c *Connection) EnableSSL() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	return c.modifySSLPolicy(true)
 }
 
+// DisableSSL : Disables the ssl required restriction on the instance
 func (c *Connection) DisableSSL() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()

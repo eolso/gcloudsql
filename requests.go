@@ -19,6 +19,7 @@ const sslRequestURLTemplate = `https://www.googleapis.com/sql/v1beta4/projects/{
 
 const tokenRequestURLTemplate = `https://www.googleapis.com/oauth2/v1/tokeninfo?access_token={{.AccessToken}}`
 
+// TemplatedHTTPRequest : Struct for creating http requests through templates
 type TemplatedHTTPRequest struct {
 	headers map[string]string
 
@@ -29,6 +30,7 @@ type TemplatedHTTPRequest struct {
 	bodyData interface{}
 }
 
+// NewHTTPRequest : Creates a new *http.Request using templates
 func NewHTTPRequest(method string, request TemplatedHTTPRequest) (*http.Request, error) {
 	var url string
 
@@ -88,6 +90,8 @@ func NewHTTPRequest(method string, request TemplatedHTTPRequest) (*http.Request,
 	return httpRequest, nil
 }
 
+// ParseHTTPRequest : Parses the response from a http request and stores the
+// output in v
 func ParseHTTPRequest(request *http.Request, v interface{}) error {
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {

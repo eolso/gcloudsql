@@ -1,6 +1,7 @@
 package gcloudsql
 
 import (
+	"encoding/json"
 	"os/exec"
 	"strings"
 	"sync"
@@ -9,8 +10,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// AccessToken : Struct for storing relevant gcloud access token data
 type AccessToken struct {
-	lock          sync.Mutex
+	lock          *sync.Mutex
 	token         string
 	expireTime    time.Time
 	IssuedTo      string `json:"issued_to"`
@@ -23,6 +25,7 @@ type AccessToken struct {
 	AccessType    string `json:"access_type"`
 }
 
+// GenerateAccessToken : Generates an AccessToken by using the gcloud command
 func GenerateAccessToken() (AccessToken, error) {
 	var accessTokenCmd = []string{"auth", "application-default", "print-access-token"}
 	output, err := exec.Command("gcloud", accessTokenCmd...).Output()
@@ -60,8 +63,15 @@ func GenerateAccessToken() (AccessToken, error) {
 	return at, nil
 }
 
+// IsExpired : returns whether or not the AccessToken is expired
 func (at AccessToken) IsExpired() bool {
 	return at.expireTime.Before(time.Now())
+}
+
+func (at AccessToken) String() string {
+	bytes, _ := json.MarshalIndent(at, "", "\t")
+
+	return string(bytes)
 }
 
 func (at *AccessToken) getExpireTime() {
