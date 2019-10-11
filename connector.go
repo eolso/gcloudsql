@@ -160,6 +160,46 @@ func (c *Connection) BlacklistIP(value string) error {
 	return c.updateAuthorizedNetworks(updatedNetworks)
 }
 
+// SetUserPassword : sets a specified users password
+func (c *Connection) SetUserPassword(user string, password string) (err error) {
+	request := TemplatedHTTPRequest{
+		urlText: pwRequestURLTemplate,
+		urlData: struct {
+			ProjectID    string
+			InstanceName string
+			User         string
+		}{
+			c.Instance.Project,
+			c.Instance.Name,
+			user,
+		},
+		headers: map[string]string{
+			"Authorization": "Bearer " + c.accessToken.token,
+			"Content-Type":  "application/json",
+		},
+		bodyText: pwRequestBodyTemplate,
+		bodyData: struct {
+			User     string
+			Password string
+		}{
+			user,
+			password,
+		},
+	}
+
+	c.httpRequest, err = NewHTTPRequest("PUT", request)
+	if err != nil {
+		return
+	}
+
+	err = ParseHTTPRequest(c.httpRequest, &c.response)
+	if err != nil {
+		return
+	}
+
+	return c.waitUntilDone()
+}
+
 func (c *Connection) updateAuthorizedNetworks(networks []AuthorizedNetwork) (err error) {
 	request := TemplatedHTTPRequest{
 		urlText: instanceRequestURLTemplate,
@@ -226,46 +266,6 @@ func (c *Connection) modifySSLPolicy(status bool) (err error) {
 	return c.waitUntilDone()
 }
 
-// SetUserPassword : sets a specified users password
-func (c *Connection) SetUserPassword(user string, password string) (err error) {
-	request := TemplatedHTTPRequest{
-		urlText: pwRequestURLTemplate,
-		urlData: struct {
-			ProjectID    string
-			InstanceName string
-			User         string
-		}{
-			c.Instance.Project,
-			c.Instance.Name,
-			user,
-		},
-		headers: map[string]string{
-			"Authorization": "Bearer " + c.accessToken.token,
-			"Content-Type":  "application/json",
-		},
-		bodyText: pwRequestBodyTemplate,
-		bodyData: struct {
-			User     string
-			Password string
-		}{
-			user,
-			password,
-		},
-	}
-
-	c.httpRequest, err = NewHTTPRequest("PUT", request)
-	if err != nil {
-		return
-	}
-
-	err = ParseHTTPRequest(c.httpRequest, &c.response)
-	if err != nil {
-		return
-	}
-
-	return c.waitUntilDone()
-}
-
 func (c *Connection) waitUntilDone() (err error) {
 	if c.response == (Response{}) {
 		return errors.New("Connection response is empty")
@@ -302,6 +302,7 @@ func (c *Connection) waitUntilDone() (err error) {
 	return nil
 }
 
+// GetPublicIP : returns the public ip of the instance, if it exists
 func (s SQLInstance) GetPublicIP() (ip string, err error) {
 	for _, addr := range s.IPAddresses {
 		if addr.Type == "PRIMARY" {
