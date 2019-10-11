@@ -49,10 +49,14 @@ func NewConnection(projectID string, instanceName string) (Connection, error) {
 }
 
 func (c Connection) GetResponse() Response {
+	c.lock.Lock()
+	c.lock.Unlock()
 	return c.response
 }
 
 func (c *Connection) EnableSSL() error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	return c.modifySSLPolicy(true)
 }
 
@@ -61,8 +65,6 @@ func (c *Connection) DisableSSL() error {
 }
 
 func (c *Connection) modifySSLPolicy(status bool) (err error) {
-	c.lock.Lock()
-
 	request := TemplatedHTTPRequest{
 		urlText: sslRequestURLTemplate,
 		urlData: struct {
@@ -94,14 +96,11 @@ func (c *Connection) modifySSLPolicy(status bool) (err error) {
 		return err
 	}
 
-	c.lock.Unlock()
 	return c.waitUntilDone()
 }
 
 // SetUserPassword : sets a specified users password
 func (c *Connection) SetUserPassword(user string, password string) (err error) {
-	c.lock.Lock()
-
 	request := TemplatedHTTPRequest{
 		urlText: pwRequestURLTemplate,
 		urlData: struct {
@@ -129,24 +128,18 @@ func (c *Connection) SetUserPassword(user string, password string) (err error) {
 
 	c.httpRequest, err = NewHTTPRequest("PUT", request)
 	if err != nil {
-		c.lock.Unlock()
 		return err
 	}
 
 	err = ParseHTTPRequest(c.httpRequest, &c.response)
 	if err != nil {
-		c.lock.Unlock()
 		return err
 	}
 
-	c.lock.Unlock()
 	return c.waitUntilDone()
 }
 
 func (c *Connection) waitUntilDone() (err error) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
 	if c.response == (Response{}) {
 		return errors.New("Connection response is empty")
 	}
@@ -162,6 +155,7 @@ func (c *Connection) waitUntilDone() (err error) {
 	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
 	s.Prefix = fmt.Sprintf("Waiting for %s operation to complete ", c.response.OperationType)
 	s.Start()
+	defer s.Stop()
 	for c.response.Status != "DONE" {
 		time.Sleep(1 * time.Second)
 
@@ -176,8 +170,6 @@ func (c *Connection) waitUntilDone() (err error) {
 			return err
 		}
 	}
-
-	s.Stop()
 
 	return nil
 }
