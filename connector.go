@@ -11,6 +11,8 @@ import (
 	"github.com/briandowns/spinner"
 )
 
+var ErrNoPublicIP = errors.New("No public IP found")
+
 // Connection : Struct for storing relevant gcloud sql connection data
 type Connection struct {
 	Instance    SQLInstance
@@ -298,6 +300,16 @@ func (c *Connection) waitUntilDone() (err error) {
 	}
 
 	return nil
+}
+
+func (s SQLInstance) GetPublicIP() (ip string, err error) {
+	for _, addr := range s.IPAddresses {
+		if addr.Type == "PRIMARY" {
+			return addr.IPAddress, nil
+		}
+	}
+
+	return "", ErrNoPublicIP
 }
 
 func (r Response) String() string {
