@@ -13,12 +13,28 @@ import (
 
 // Connection : Struct for storing relevant gcloud sql connection data
 type Connection struct {
-	ProjectID    string
-	InstanceName string
-	accessToken  AccessToken
-	httpRequest  *http.Request
-	response     Response
-	lock         *sync.Mutex
+	Instance    SQLInstance
+	accessToken AccessToken
+	httpRequest *http.Request
+	response    Response
+	lock        *sync.Mutex
+}
+
+// SQLInstance : Struct for storing sql relevant sql instance data
+type SQLInstance struct {
+	Kind            string `json:"kind"`
+	State           string `json:"state"`
+	DatabaseVersion string `json:"databaseVersion"`
+	IPAddresses     []struct {
+		Type      string `json:"type"`
+		IPAddress string `json:"ipAddress"`
+	} `json:"ipAddresses"`
+	Project        string `json:"project"`
+	SelfLink       string `json:"selfLink"`
+	ConnectionName string `json:"connectionName"`
+	Name           string `json:"name"`
+	Region         string `json:"region"`
+	GceZone        string `json:"gceZone"`
 }
 
 // Response : Struct for storing response data from gcloud sql api
@@ -38,17 +54,40 @@ type Response struct {
 }
 
 // NewConnection : Creates a new Connection from a specified projectID, instanceName
-func NewConnection(projectID string, instanceName string) (Connection, error) {
+func NewConnection(projectID string, instanceName string) (c Connection, err error) {
 	accessToken, err := GenerateAccessToken()
-	if err != nil {
-		return Connection{}, err
+
+	request := TemplatedHTTPRequest{
+		urlText: instanceRequestURLTemplate,
+		urlData: struct {
+			ProjectID    string
+			InstanceName string
+		}{
+			projectID,
+			instanceName,
+		},
+		headers: map[string]string{
+			"Authorization": "Bearer " + accessToken.token,
+			"Content-Type":  "application/json",
+		},
 	}
 
-	return Connection{
-		ProjectID:    projectID,
-		InstanceName: instanceName,
-		accessToken:  accessToken,
-	}, nil
+	httpRequest, err := NewHTTPRequest("GET", request)
+	if err != nil {
+		return
+	}
+
+	var sqlInstance SQLInstance
+	err = ParseHTTPRequest(httpRequest, &sqlInstance)
+	if err != nil {
+		return
+	}
+
+	c.Instance = sqlInstance
+	c.accessToken = accessToken
+	c.lock = new(sync.Mutex)
+
+	return
 }
 
 // GetResponse : Returns the last response held by the connection
@@ -77,8 +116,8 @@ func (c *Connection) modifySSLPolicy(status bool) (err error) {
 			ProjectID    string
 			InstanceName string
 		}{
-			c.ProjectID,
-			c.InstanceName,
+			c.Instance.Project,
+			c.Instance.Name,
 		},
 		headers: map[string]string{
 			"Authorization": "Bearer " + c.accessToken.token,
@@ -114,8 +153,8 @@ func (c *Connection) SetUserPassword(user string, password string) (err error) {
 			InstanceName string
 			User         string
 		}{
-			c.ProjectID,
-			c.InstanceName,
+			c.Instance.Project,
+			c.Instance.Name,
 			user,
 		},
 		headers: map[string]string{
@@ -160,6 +199,7 @@ func (c *Connection) waitUntilDone() (err error) {
 
 	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
 	s.Prefix = fmt.Sprintf("Waiting for %s operation to complete ", c.response.OperationType)
+	s.FinalMSG = fmt.Sprintf("%s✓\n", s.Prefix)
 	s.Start()
 	defer s.Stop()
 	for c.response.Status != "DONE" {

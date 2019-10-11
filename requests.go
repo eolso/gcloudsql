@@ -19,6 +19,8 @@ const sslRequestURLTemplate = `https://www.googleapis.com/sql/v1beta4/projects/{
 
 const tokenRequestURLTemplate = `https://www.googleapis.com/oauth2/v1/tokeninfo?access_token={{.AccessToken}}`
 
+const instanceRequestURLTemplate = `https://www.googleapis.com/sql/v1beta4/projects/{{.ProjectID}}/instances/{{.InstanceName}}`
+
 // TemplatedHTTPRequest : Struct for creating http requests through templates
 type TemplatedHTTPRequest struct {
 	headers map[string]string
