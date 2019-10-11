@@ -49,8 +49,6 @@ func NewConnection(projectID string, instanceName string) (Connection, error) {
 }
 
 func (c Connection) GetResponse() Response {
-	c.lock.Lock()
-	c.lock.Unlock()
 	return c.response
 }
 
@@ -61,6 +59,8 @@ func (c *Connection) EnableSSL() error {
 }
 
 func (c *Connection) DisableSSL() error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	return c.modifySSLPolicy(false)
 }
 
