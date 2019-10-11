@@ -25,7 +25,15 @@ type SQLInstance struct {
 	Kind            string `json:"kind"`
 	State           string `json:"state"`
 	DatabaseVersion string `json:"databaseVersion"`
-	IPAddresses     []struct {
+	Settings        struct {
+		IPConfiguration struct {
+			PrivateNetwork     string              `json:"privateNetwork"`
+			AuthorizedNetworks []AuthorizedNetwork `json:"authorizedNetworks"`
+			Ipv4Enabled        bool                `json:"ipv4Enabled"`
+			RequireSsl         bool                `json:"requireSsl"`
+		} `json:"ipConfiguration"`
+	} `json:"settings"`
+	IPAddresses []struct {
 		Type      string `json:"type"`
 		IPAddress string `json:"ipAddress"`
 	} `json:"ipAddresses"`
@@ -35,6 +43,13 @@ type SQLInstance struct {
 	Name           string `json:"name"`
 	Region         string `json:"region"`
 	GceZone        string `json:"gceZone"`
+}
+
+// AuthorizedNetwork : Struct for storing instance network acl data
+type AuthorizedNetwork struct {
+	Value string `json:"value"`
+	Name  string `json:"name"`
+	Kind  string `json:"kind"`
 }
 
 // Response : Struct for storing response data from gcloud sql api
@@ -109,6 +124,71 @@ func (c *Connection) DisableSSL() error {
 	return c.modifySSLPolicy(false)
 }
 
+// WhitelistIP : Adds an entry to the instance authorized networks
+func (c *Connection) WhitelistIP(name string, value string) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	newNetwork := AuthorizedNetwork{
+		Value: value,
+		Name:  name,
+		Kind:  "sql#aclEntry",
+	}
+
+	updatedNetworks := c.Instance.Settings.IPConfiguration.AuthorizedNetworks
+	updatedNetworks = append(updatedNetworks, newNetwork)
+
+	return c.updateAuthorizedNetworks(updatedNetworks)
+}
+
+// BlacklistIP : Searches for specified value in whitelist and removes it
+func (c *Connection) BlacklistIP(value string) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	currentNetworks := c.Instance.Settings.IPConfiguration.AuthorizedNetworks
+
+	var updatedNetworks []AuthorizedNetwork
+	for _, network := range currentNetworks {
+		if network.Value != value {
+			updatedNetworks = append(updatedNetworks, network)
+		}
+	}
+
+	return c.updateAuthorizedNetworks(updatedNetworks)
+}
+
+func (c *Connection) updateAuthorizedNetworks(networks []AuthorizedNetwork) (err error) {
+	request := TemplatedHTTPRequest{
+		urlText: instanceRequestURLTemplate,
+		urlData: struct {
+			ProjectID    string
+			InstanceName string
+		}{
+			c.Instance.Project,
+			c.Instance.Name,
+		},
+		headers: map[string]string{
+			"Authorization": "Bearer " + c.accessToken.token,
+			"Content-Type":  "application/json",
+		},
+		bodyText: instanceRequestBodyTemplate,
+		bodyData: networks,
+	}
+
+	c.httpRequest, err = NewHTTPRequest("PATCH", request)
+	if err != nil {
+		return
+	}
+
+	err = ParseHTTPRequest(c.httpRequest, &c.response)
+	if err != nil {
+		return
+	}
+
+	return c.waitUntilDone()
+}
+
 func (c *Connection) modifySSLPolicy(status bool) (err error) {
 	request := TemplatedHTTPRequest{
 		urlText: sslRequestURLTemplate,
@@ -133,12 +213,12 @@ func (c *Connection) modifySSLPolicy(status bool) (err error) {
 
 	c.httpRequest, err = NewHTTPRequest("PATCH", request)
 	if err != nil {
-		return err
+		return
 	}
 
 	err = ParseHTTPRequest(c.httpRequest, &c.response)
 	if err != nil {
-		return err
+		return
 	}
 
 	return c.waitUntilDone()
@@ -173,12 +253,12 @@ func (c *Connection) SetUserPassword(user string, password string) (err error) {
 
 	c.httpRequest, err = NewHTTPRequest("PUT", request)
 	if err != nil {
-		return err
+		return
 	}
 
 	err = ParseHTTPRequest(c.httpRequest, &c.response)
 	if err != nil {
-		return err
+		return
 	}
 
 	return c.waitUntilDone()
