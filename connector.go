@@ -74,6 +74,9 @@ type Response struct {
 // NewConnection : Creates a new Connection from a specified projectID, instanceName
 func NewConnection(projectID string, instanceName string) (c Connection, err error) {
 	accessToken, err := GenerateAccessToken()
+	if err != nil {
+		return
+	}
 
 	request := TemplatedHTTPRequest{
 		urlText: instanceRequestURLTemplate,
