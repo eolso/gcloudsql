@@ -42,6 +42,8 @@ const instanceRequestBodyTemplate = `{
 	}
 }`
 
+var ErrRequestNotFound = errors.New("request returned 404 Not Found")
+
 // TemplatedHTTPRequest : Struct for creating http requests through templates
 type TemplatedHTTPRequest struct {
 	headers map[string]string
@@ -111,6 +113,9 @@ func ParseHTTPRequest(request *http.Request, v interface{}) error {
 	}
 
 	if response.StatusCode != http.StatusOK {
+		if response.StatusCode == 404 {
+			return ErrRequestNotFound
+		}
 		return errors.New("request returned " + response.Status)
 	}
 
