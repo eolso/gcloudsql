@@ -6,8 +6,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // AccessToken : Struct for storing relevant gcloud access token data
@@ -26,15 +24,15 @@ type AccessToken struct {
 }
 
 // GenerateAccessToken : Generates an AccessToken by using the gcloud command
-func GenerateAccessToken() (AccessToken, error) {
+func GenerateAccessToken() (at AccessToken, err error) {
 	var accessTokenCmd = []string{"auth", "application-default", "print-access-token"}
 	output, err := exec.Command("gcloud", accessTokenCmd...).Output()
 
 	if err != nil {
-		log.Fatal("Failed to get gcloud access token - ", err)
+		return
 	}
 
-	at := AccessToken{
+	at = AccessToken{
 		token: strings.TrimSpace(string(output)),
 	}
 
@@ -52,15 +50,12 @@ func GenerateAccessToken() (AccessToken, error) {
 
 	request, err := NewHTTPRequest("GET", requestTmpl)
 	if err != nil {
-		return AccessToken{}, err
+		return
 	}
 
 	err = ParseHTTPRequest(request, &at)
-	if err != nil {
-		return AccessToken{}, err
-	}
 
-	return at, nil
+	return
 }
 
 // IsExpired : returns whether or not the AccessToken is expired

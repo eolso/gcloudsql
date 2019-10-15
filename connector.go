@@ -2,11 +2,12 @@ package gcloudsql
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/briandowns/spinner"
 )
@@ -104,6 +105,8 @@ func NewConnection(projectID string, instanceName string) (c Connection, err err
 	c.accessToken = accessToken
 	c.lock = new(sync.Mutex)
 
+	debugLogger.Print(projectID, ":", instanceName, " connection create successfully")
+
 	return
 }
 
@@ -116,6 +119,9 @@ func (c Connection) GetResponse() Response {
 func (c *Connection) EnableSSL() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+
+	debugLogger.Print("enabling ssl on ", c.Instance.Name)
+
 	return c.modifySSLPolicy(true)
 }
 
@@ -123,6 +129,9 @@ func (c *Connection) EnableSSL() error {
 func (c *Connection) DisableSSL() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+
+	debugLogger.Print("disabling ssl on ", c.Instance.Name)
+
 	return c.modifySSLPolicy(false)
 }
 
@@ -130,6 +139,8 @@ func (c *Connection) DisableSSL() error {
 func (c *Connection) WhitelistIP(name string, value string) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+
+	debugLogger.Print("whitelisting ip {", name, ",", value, "}")
 
 	newNetwork := AuthorizedNetwork{
 		Value: value,
@@ -147,6 +158,8 @@ func (c *Connection) WhitelistIP(name string, value string) error {
 func (c *Connection) BlacklistIP(value string) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+
+	debugLogger.Print("blacklisting ip {", value, "}")
 
 	currentNetworks := c.Instance.Settings.IPConfiguration.AuthorizedNetworks
 
@@ -309,6 +322,8 @@ func (s SQLInstance) GetPublicIP() (ip string, err error) {
 			return addr.IPAddress, nil
 		}
 	}
+
+	debugLogger.Print(s.IPAddresses)
 
 	return "", ErrNoPublicIP
 }

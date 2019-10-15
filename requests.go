@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"text/template"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/pkg/errors"
 )
 
 const pwRequestURLTemplate = `https://www.googleapis.com/sql/v1beta4/projects/{{.ProjectID}}/instances/{{.InstanceName}}/users?name={{.User}}`
@@ -65,11 +65,6 @@ func NewHTTPRequest(method string, request TemplatedHTTPRequest) (*http.Request,
 
 		err := tmpl.Execute(writer, request.urlData)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"Function":     "NewHTTPRequest",
-				"TemplateName": tmpl.Name,
-				"TemplateData": request.urlData,
-			}).Error("failed to execute template")
 			return nil, err
 		}
 
@@ -84,11 +79,6 @@ func NewHTTPRequest(method string, request TemplatedHTTPRequest) (*http.Request,
 		tmpl := template.Must(template.New("body").Parse(request.bodyText))
 		err := tmpl.Execute(writer, request.bodyData)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"Function":     "NewHTTPRequest",
-				"TemplateName": tmpl.Name,
-				"TemplateData": request.urlData,
-			}).Error("failed to execute template")
 			return nil, err
 		}
 
@@ -97,12 +87,6 @@ func NewHTTPRequest(method string, request TemplatedHTTPRequest) (*http.Request,
 
 	httpRequest, err := http.NewRequest(method, url, body)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"Function": "NewHTTPRequest",
-			"Method":   method,
-			"Url":      url,
-			"Body":     body,
-		}).Error("failed to create http request")
 		return nil, err
 	}
 
@@ -118,23 +102,16 @@ func NewHTTPRequest(method string, request TemplatedHTTPRequest) (*http.Request,
 func ParseHTTPRequest(request *http.Request, v interface{}) error {
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"Function": "ParseHTTPRequest",
-			"Request":  request,
-		}).Error("failed to create run request")
 		return err
-	}
-
-	if response.StatusCode != http.StatusOK {
-		log.WithFields(log.Fields{
-			"Function":   "ParseHTTPRequest",
-			"StatusCode": string(response.StatusCode),
-		}).Warn("request returned a non 200 response")
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return errors.New("request returned " + response.Status)
 	}
 
 	return json.Unmarshal(responseBody, &v)
