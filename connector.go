@@ -2,14 +2,11 @@ package gcloudsql
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
-
-	"github.com/briandowns/spinner"
 )
 
 var ErrNoPublicIP = errors.New("No public IP found")
@@ -295,11 +292,6 @@ func (c *Connection) waitUntilDone() (err error) {
 		},
 	}
 
-	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
-	s.Prefix = fmt.Sprintf("Waiting for %s operation to complete ", c.response.OperationType)
-	s.FinalMSG = fmt.Sprintf("%s✓\n", s.Prefix)
-	s.Start()
-	defer s.Stop()
 	for c.response.Status != "DONE" {
 		time.Sleep(1 * time.Second)
 
